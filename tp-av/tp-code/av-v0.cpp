@@ -478,22 +478,17 @@ tp3DVisualServoing()
 
     vpPoseVector e = computeError3D(cdTc);
     
-    vpMatrix Lx(6,6);
-    Lx.eye();
 
     vpColVector v(6) ;
-    double lambda = 0.1 ;
+    double lambda = 1.99;
     int iter = 0 ;
     while (fabs(vpColVector(e).sumSquare()) > 1e-6)
     {
 
-        // Calcul de l'erreur
-        //computeError3D(...) ;
-
-        // Calcul de la matrice d'interaction
-        //  computeInteractionMatrix3D(...) ;
-
-        //        Calcul de la loi de commande
+        cdTc = cdTw * cTw.inverse();
+        e = computeError3D(cdTc);
+        //No need for a matrix
+        v = vpColVector(e) * (-lambda);
 
 
         // Mis à jour de la position de la camera
