@@ -14,9 +14,18 @@
 #include <string>
 #include <visp3/io/vpImageIo.h>
 #include <omp.h>
+#include <limits>
+#include <visp3/core/vpImageConvert.h>
 
 #define OMP_PARALLEL_FOR _Pragma("omp parallel for")
 //#define OMP_PARALLEL_FOR
+
+std::string operator+(std::string const& str, int i)
+{
+    char numstr[21]; // enough to hold all numbers up to 64-bits
+    sprintf(numstr, "%d", i);
+    return str + numstr;
+}
 
 class EigenFacesDB
 {
@@ -36,52 +45,90 @@ private:
 	// Le nombre de vecteur U
 	int m_maxEigenFace;
 
+	vpMatrix m_A, full_U;
+	vpColVector m_ev;
+	
+
+	std::vector<std::string> m_paths;
+
 public:
+	std::vector<vpColVector> m_projected_refs;
 	/**
 	 *  Constructeurs et destructeurs
 	 */
 	EigenFacesDB(){}
 	virtual ~EigenFacesDB(){}
 
-	// Construire notre base de donnee
-	void buildBDFaces(const std::vector<std::string>& paths, int maxEigenFace = 50)
+	void preBuild(const std::vector<std::string>& paths)
 	{
-		m_maxEigenFace = std::min(maxEigenFace, (int)paths.size());
-    
+		m_paths = paths;
 		// On calcul les attibuts de l'image
 		vpImage<unsigned char> I;
 		vpImageIo::read(I,*paths.begin());
 		m_w = I.getWidth();
 		m_h = I.getHeight();
 		m_size = m_h*m_w;
+
+		//std::cout << " * Caracteristique de l'images : " << m_h << "x" << m_w << std::endl;
+		//std::cout << " * Nombre d'image de la base : " << paths.size()<< std::endl;
 		
-		std::cout << " * Caracteristique de l'images : " << m_h << "x" << m_w << std::endl;
-		std::cout << " * Nombre d'image de la base : " << paths.size()<< std::endl;
-		std::cout << " * Nombre de U : " << m_maxEigenFace << std::endl;
-		
+
 		// Creation du vpColVector pour le mean face
-		std::cout << "[INFO] Creation Mean images ...." << std::endl;		
+		//std::cout << "[INFO] Creation Mean images ...." << std::endl;		
 		buildMeanImage(paths);
-		
+
 		// Calcul de la matrice A
-		std::cout << "[INFO] Calcul de A ... " << std::endl;
-		vpMatrix A(paths.size(), m_size);
+		//std::cout << "[INFO] Calcul de A ... " << std::endl;
+		m_A = vpMatrix(paths.size(), m_size);
 		for(int k=0; k<paths.size(); ++k)
 		{
 			vpImageIo::read(I, paths[k]);
-			fillCenteredImage(I, A[k]);
+			fillCenteredImage(I, m_A[k]);
 		}
-		A = A.t();
+		m_A = m_A.t();
 
-		vpMatrix U = A, V;
-		vpColVector w;
-		std::cout<<"[INFO] SVD ... "<<std::endl;
-		U.svd(w, V);
+		full_U = m_A;
+		vpMatrix V;
+		//std::cout<<"[INFO] SVD ... "<<std::endl;
+		full_U.svd(m_ev, V);
 
-		m_U = U.extract(0, 0, U.getRows(), m_maxEigenFace);
+		m_ev = m_ev / m_ev.sum();
+
+
+		//std::cout<<"Done!"<<std::endl;
+
+		m_projected_refs = std::vector<vpColVector>(paths.size());
+
+	}
+
+	// Construire notre base de donnee
+	// returns the sum of the k first eigen values 
+	double buildBDFaces(int maxEigenFace = 50)
+	{
+		m_maxEigenFace = std::min(maxEigenFace, (int)m_ev.size());
+		//std::cout << " * Nombre de U : " << m_maxEigenFace << std::endl;
+		m_U = full_U.extract(0, 0, full_U.getRows(), m_maxEigenFace);
 		
-		
-		std::cout << "[INFO] Fin calcul BD ... " << std::endl;
+		//std::cout << "[INFO] Fin calcul BD ... " << std::endl;
+
+		double res = 0;
+		for(int i=0; i<m_maxEigenFace; ++i)
+		{
+			res += m_ev[i];
+		}
+
+		{
+			vpImage<unsigned char> img(m_h, m_w);
+			vpColVector img_W;
+			for(int i=0; i<m_paths.size(); ++i)
+			{
+				vpImageIo::read(img, m_paths[i]);
+				img_W = W(img);
+				m_projected_refs[i] = img_W;
+			}
+		}
+
+		return res;
 	}
 
 	void fillCenteredImage(vpImage<unsigned char> const& img, double * vec)const
@@ -140,8 +187,42 @@ public:
 		return res;
 	}
 
+	int closestImage(vpImage<unsigned char> img, double * theta = nullptr)const
+	{
+		vpColVector img_W = W(img);
+		int best=0;
+		double best_score = std::numeric_limits<double>::max();
+		for(int i=0; i<m_paths.size(); ++i)
+		{
+			vpColVector dif = m_projected_refs[i]
+			 - img_W;
+			double score = dif.sumSquare();
+			if(score < best_score)
+			{
+				best = i;
+				best_score = score;
+			}
+		}
+		if(theta)	*theta = best_score;
+		return best;
+	}
+
 	// * les images des eigenFaces
-	void writeEigenFacesImage(const std::string& directory = "");
+	void writeEigenFacesImage(const std::string& directory = "./", int max=0)
+	{
+		//vpColVector eigenFace;
+		vpImage<double> ef_img(m_h, m_w);
+		vpImage<unsigned char> uc_img(m_h, m_w);
+		max = std::min((int)m_paths.size(), max);
+		for(int i=0; i<max; ++i)
+		{
+			//eigenFace = full_U.getCol(i);
+			OMP_PARALLEL_FOR
+			for(int j=0; j<ef_img.getSize(); ++j)	ef_img.bitmap[j] = full_U[j][i];
+			vpImageConvert::convert(ef_img, uc_img);
+			vpImageIo::write(uc_img, directory + std::string("eigenFace") + i + std::string(".png"));
+		}
+	}
 	// * l'image synthetisee
 	vpColVector computeSynthesisImage(const std::string& image, int nbDim);
 	void writeSynthesisImage(const std::string& image, const std::string& out, int nbDim);

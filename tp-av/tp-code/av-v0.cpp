@@ -295,10 +295,10 @@ tp2DVisualServoingFourPoint()
 
     //positions initiale (à tester)
     //vpHomogeneousMatrix cTw (-0.2, -0.1, 1.3, vpMath::rad(10), vpMath::rad(20), vpMath::rad(30) ) ;
-    //  vpHomogeneousMatrix cTw (0.2,0.1,1.3,  0,0,vpMath::rad(5)) ;
-    //   vpHomogeneousMatrix cTw (0,0,1,  0,0,vpMath::rad(45)) ;
-    //  vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(90)) ;
-       vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(180)) ;
+    //vpHomogeneousMatrix cTw (0.2,0.1,1.3,  0,0,vpMath::rad(5)) ;
+    //vpHomogeneousMatrix cTw (0,0,1,  0,0,vpMath::rad(45)) ;
+    //vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(90)) ;
+    vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(180-10)) ;
 
     // position finale
     vpHomogeneousMatrix cdTw (0,0,1,  0,0,0) ;
@@ -349,7 +349,7 @@ tp2DVisualServoingFourPoint()
 
     
 
-    vpColVector v(size) ;
+    vpColVector v(6) ;
     double lambda = 0.1 ;
     int iter = 0 ;
 
@@ -471,7 +471,14 @@ tp3DVisualServoing()
 
 
     //Definition de la scene
-    vpHomogeneousMatrix cTw (-0.2, -0.1, 1.3, vpMath::rad(10), vpMath::rad(20), vpMath::rad(30) ) ;
+
+    //vpHomogeneousMatrix cTw (-0.2, -0.1, 1.3, vpMath::rad(10), vpMath::rad(20), vpMath::rad(30) ) ;
+    //vpHomogeneousMatrix cTw (0.2,0.1,1.3,  0,0,vpMath::rad(5)) ;
+    //vpHomogeneousMatrix cTw (0,0,1,  0,0,vpMath::rad(45)) ;
+    vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(90)) ;
+    //vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(180-10));
+
+
     vpHomogeneousMatrix cdTw (0,0,1,  0,0,0) ;
 
     vpHomogeneousMatrix cdTc = cdTw * cTw.inverse();
@@ -480,7 +487,7 @@ tp3DVisualServoing()
     
 
     vpColVector v(6) ;
-    double lambda = 1.99;
+    double lambda = 0.1;
     int iter = 0 ;
     while (fabs(vpColVector(e).sumSquare()) > 1e-6)
     {
