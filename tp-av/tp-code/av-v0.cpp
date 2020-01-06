@@ -296,9 +296,9 @@ tp2DVisualServoingFourPoint()
     //positions initiale (à tester)
     //vpHomogeneousMatrix cTw (-0.2, -0.1, 1.3, vpMath::rad(10), vpMath::rad(20), vpMath::rad(30) ) ;
     //vpHomogeneousMatrix cTw (0.2,0.1,1.3,  0,0,vpMath::rad(5)) ;
-    //vpHomogeneousMatrix cTw (0,0,1,  0,0,vpMath::rad(45)) ;
+    vpHomogeneousMatrix cTw (0,0,1,  0,0,vpMath::rad(45)) ;
     //vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(90)) ;
-    vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(180-10)) ;
+    //vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(180)) ;
 
     // position finale
     vpHomogeneousMatrix cdTw (0,0,1,  0,0,0) ;
@@ -370,8 +370,8 @@ tp2DVisualServoingFourPoint()
 
         // Calcul de la matrice d'interaction
         vpMatrix Lx(size,6) ;
-        computeInteractionMatrixMultiPoints(cX, x, Lx);
-        //computeInteractionMatrixMultiPoints(cdX, xd, Lx);
+        //computeInteractionMatrixMultiPoints(cX, x, Lx);
+        computeInteractionMatrixMultiPoints(cdX, xd, Lx);
 
         //calcul de l'erreur
         e = x - xd;
@@ -474,9 +474,9 @@ tp3DVisualServoing()
 
     //vpHomogeneousMatrix cTw (-0.2, -0.1, 1.3, vpMath::rad(10), vpMath::rad(20), vpMath::rad(30) ) ;
     //vpHomogeneousMatrix cTw (0.2,0.1,1.3,  0,0,vpMath::rad(5)) ;
-    //vpHomogeneousMatrix cTw (0,0,1,  0,0,vpMath::rad(45)) ;
-    vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(90)) ;
-    //vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(180-10));
+    vpHomogeneousMatrix cTw (0,0,1,  0,0,vpMath::rad(45)) ;
+    //vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(90)) ;
+    //vpHomogeneousMatrix cTw (0, 0, 1,  0, 0, vpMath::rad(180));
 
 
     vpHomogeneousMatrix cdTw (0,0,1,  0,0,0) ;
@@ -526,9 +526,11 @@ tp3DVisualServoing()
 }
 
 
-void
-tp2DVisualServoingFourPointMvt()
+void tp2DVisualServoingFourPointMvt()
 {
+    //-------------------------------------------------------------
+    // Mise en oeuvre des courbes
+
     vpPlot plot(4, 700, 700, 100, 200, "Curves...");
 
 
@@ -617,22 +619,23 @@ tp2DVisualServoingFourPointMvt()
 
     
 
-    vpColVector v(size) ;
-    double lambda = 0.001 ;
+    vpColVector v(6) ;
+    double lambda = 0.6 ;
     int iter = 0 ;
 
     vpMatrix Lx(size,6), LxPlus(6, size);
 
-    double t = 0;
     while (fabs(e.sumSquare()) > 1e-16)
     {
-        t += 1;
-        // les points sont animés d'un mouvement de 1cm/s en x dans Rw
-        for (int i = 0 ; i < 4 ; i++)
-        {
-            wX[i][0] += 0.001  * (t > 17000);
-            wX[i][1] += 2 * sin(t / 120) * 0;
+        double t = (double) iter / 100.0;
+        //mouvement sur les 4 points
+        vpColVector d(3);
+        d[0] = 0.03*sin(1.0*t); d[1] = 0.0*cos(t*1.0); d[2] = 0;
+        for(int i=0; i<4; ++i)
+        {    
+            wX[i] += d;
         }
+
 
         vpColVector cx(2);
         // calcul de la position des points dans l'image en fonction de cTw
@@ -641,7 +644,10 @@ tp2DVisualServoingFourPointMvt()
             changeFrame(wX[i], cTw, cX[i]);
             project(cX[i], cx);
             x[2*i] = cx[0];
+            x[2*i+1] = cx[1];
         }
+        
+
         // Calcul de la matrice d'interaction
         vpMatrix Lx(size,6) ;
         computeInteractionMatrixMultiPoints(cX, x, Lx);
@@ -669,7 +675,7 @@ tp2DVisualServoingFourPointMvt()
         //mise a jour de l'image
         display(cam,I,x,xd) ;
 
-        vpTime::wait(0);
+        vpTime::wait(15);
     }
 
     // sauvegarde des courbes
@@ -695,8 +701,8 @@ int main(int argc, char** argv)
 {
     
     //tp2DVisualServoingOnePoint() ;
-    //tp2DVisualServoingFourPoint() ;
-    tp3DVisualServoing() ;
+    tp2DVisualServoingFourPoint() ;
+    //tp3DVisualServoing() ;
     //tp2DVisualServoingFourPointMvt() ;
 
 }
