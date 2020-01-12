@@ -37,6 +37,10 @@ string
 -
 visp3/core/vpImage.h
 -
+algorithm
+-
+numeric
+-
 EigenFacesDB.h
 /mnt/i/E3/VO/TP/TP_EF/code/eigen/src/EigenFacesDB.h
 

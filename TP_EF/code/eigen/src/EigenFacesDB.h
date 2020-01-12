@@ -29,7 +29,7 @@ std::string operator+(std::string const& str, int i)
 
 class EigenFacesDB
 {
-private:
+public:
 	/**
 	 * Attributs
 	 */
@@ -49,7 +49,7 @@ private:
 	vpColVector m_ev;
 	
 
-	std::vector<std::string> m_paths;
+	std::vector<std::vector<std::string>> m_paths;
 
 public:
 	std::vector<vpColVector> m_projected_refs;
@@ -59,31 +59,37 @@ public:
 	EigenFacesDB(){}
 	virtual ~EigenFacesDB(){}
 
-	void preBuild(const std::vector<std::string>& paths)
+	void preBuild(const std::vector<std::vector<std::string>>& paths)
 	{
 		m_paths = paths;
 		// On calcul les attibuts de l'image
 		vpImage<unsigned char> I;
-		vpImageIo::read(I,*paths.begin());
+		vpImageIo::read(I, paths.front().front());
+		//std::cout<<"ici"<<std::endl;
 		m_w = I.getWidth();
 		m_h = I.getHeight();
 		m_size = m_h*m_w;
 
-		//std::cout << " * Caracteristique de l'images : " << m_h << "x" << m_w << std::endl;
-		//std::cout << " * Nombre d'image de la base : " << paths.size()<< std::endl;
+		std::cout << " * Caracteristique de l'images : " << m_h << "x" << m_w << std::endl;
+		std::cout << " * Nombre d'image de la base : " << paths.size()<< std::endl;
 		
 
 		// Creation du vpColVector pour le mean face
-		//std::cout << "[INFO] Creation Mean images ...." << std::endl;		
+		std::cout << "[INFO] Creation Mean images ...." << std::endl;		
 		buildMeanImage(paths);
-
+		
 		// Calcul de la matrice A
-		//std::cout << "[INFO] Calcul de A ... " << std::endl;
-		m_A = vpMatrix(paths.size(), m_size);
-		for(int k=0; k<paths.size(); ++k)
+		std::cout << "[INFO] Calcul de A ... " << std::endl;
+		m_A = vpMatrix(std::accumulate(paths.cbegin(), paths.cend(), 0,  [](size_t res, std::vector<std::string> const& v){return res + v.size();}), m_size);
+		int k=0;
+		for(int face=0; face<paths.size(); ++face)
 		{
-			vpImageIo::read(I, paths[k]);
-			fillCenteredImage(I, m_A[k]);
+			for(int instance=0; instance<paths[face].size(); ++instance)
+			{
+				vpImageIo::read(I, paths[face][instance]);
+				fillCenteredImage(I, m_A[k]);
+				++k;
+			}
 		}
 		m_A = m_A.t();
 
@@ -97,7 +103,7 @@ public:
 
 		//std::cout<<"Done!"<<std::endl;
 
-		m_projected_refs = std::vector<vpColVector>(paths.size());
+		m_projected_refs = std::vector<vpColVector>(k);
 
 	}
 
@@ -117,16 +123,18 @@ public:
 			res += m_ev[i];
 		}
 
-		{
-			vpImage<unsigned char> img(m_h, m_w);
-			vpColVector img_W;
-			for(int i=0; i<m_paths.size(); ++i)
+		vpImage<unsigned char> img(m_h, m_w);
+		vpColVector img_W;
+		int i=0;
+		for(int face=0; face < m_paths.size(); ++face)
+			for(int instance=0; instance<m_paths[face].size(); ++instance)
 			{
-				vpImageIo::read(img, m_paths[i]);
+				vpImageIo::read(img, m_paths[face][instance]);
 				img_W = W(img);
 				m_projected_refs[i] = img_W;
+				++i;
 			}
-		}
+		
 
 		return res;
 	}
@@ -187,24 +195,43 @@ public:
 		return res;
 	}
 
-	int closestImage(vpImage<unsigned char> img, double * theta = nullptr)const
+	std::pair<int, int> closestImage(vpImage<unsigned char> const& img, double * theta = nullptr, std::pair<int, int> except={-1, -1})const
 	{
 		vpColVector img_W = W(img);
-		int best=0;
+		return closestImage(img_W, theta, except);
+	}
+
+	std::pair<int, int> closestImage(vpColVector const& img_W, double * theta = nullptr, std::pair<int, int> except={-1, -1})const
+	{
+		std::pair<int, int> best_id;
 		double best_score = std::numeric_limits<double>::max();
-		for(int i=0; i<m_paths.size(); ++i)
+		int i=0;
+		for(int face=0; face<m_paths.size(); ++face)
 		{
-			vpColVector dif = m_projected_refs[i]
-			 - img_W;
-			double score = dif.sumSquare();
-			if(score < best_score)
+			if(except.first == face && except.second == -1) //skip whole face
 			{
-				best = i;
-				best_score = score;
+				i += m_paths[face].size();
+				continue;
+			}
+			for(int instance=0; instance<m_paths[face].size(); ++instance)
+			{
+				if(except.first == face && except.second == instance) //skip instance
+				{
+					++i;
+					continue;
+				}
+				vpColVector dif = m_projected_refs[i] - img_W;
+				double score = dif.sumSquare();
+				if(score < best_score)
+				{
+					best_id = {face, instance};
+					best_score = score;
+				}
+				++i;
 			}
 		}
 		if(theta)	*theta = best_score;
-		return best;
+		return best_id;
 	}
 
 	// * les images des eigenFaces
@@ -223,6 +250,16 @@ public:
 			vpImageIo::write(uc_img, directory + std::string("eigenFace") + i + std::string(".png"));
 		}
 	}
+
+	void centerImage(vpImage<unsigned char> & img)const
+	{
+		vpColVector vec(m_size);
+		fillCenteredImage(img, vec.data);
+		vpImage<double> tmp(m_h, m_w);
+		OMP_PARALLEL_FOR
+		for(int i=0; i<tmp.getSize(); ++i)	tmp.bitmap[i] = vec[i];
+		vpImageConvert::convert(tmp, img);
+	}
 	// * l'image synthetisee
 	vpColVector computeSynthesisImage(const std::string& image, int nbDim);
 	void writeSynthesisImage(const std::string& image, const std::string& out, int nbDim);
@@ -238,15 +275,18 @@ public:
 	void writeMatriceDistance(std::vector<std::string> paths, const std::string& out, int nbDim);
 	
 private:
-	void buildMeanImage(const std::vector<std::string>& paths)
+	void buildMeanImage(const std::vector<std::vector<std::string>>& paths)
 	{
 		m_vMean = vpColVector(m_size);
 		m_vMean = 0;
 		vpImage<unsigned char> tmp;
-		double normalization_factor = 1.0 / (double(paths.size()) * 255.0);
-		for(int k=0; k<paths.size(); ++k)
+		int N = std::accumulate(paths.cbegin(), paths.cend(), 0,  [](size_t res, std::vector<std::string> const& v){return res + v.size();});
+		double normalization_factor = 1.0 / (N * 255.0);
+		for(int face=0; face<paths.size(); ++face)
+			for(int instance=0; instance < paths[face].size(); ++instance)
 		{
-			vpImageIo::read(tmp, paths[k]);
+			
+			vpImageIo::read(tmp, paths[face][instance]);
 
 			OMP_PARALLEL_FOR
 			for(int i=0; i<m_h; ++i)
@@ -260,10 +300,6 @@ private:
 			}
 		}
 	}
-
-	vpMatrix buildMatrixA(const std::vector<std::string>& paths);
-	void computeU(vpMatrix& A, vpMatrix& eigenVec);
-	void writeEigenFaceInImage(const std::string& path, vpColVector v);
 
 	int to1D(int i, int j)const
 	{
