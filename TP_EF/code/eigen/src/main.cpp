@@ -94,6 +94,8 @@ void test_k_error_sum()
     ev_sums.reserve(K.size());
     EigenFacesDB egdb;
     egdb.preBuild(paths);
+    std::cout<<"Eigen Values: "<<std::endl;
+    egdb.printEigenValues();
     egdb.writeMeanImage(std::string("res/mean") + std::string(".png"));
     egdb.writeEigenFacesImage("res/", 30);
 
@@ -280,85 +282,55 @@ void stat_recognition()
     std::cout<<"Done!"<<std::endl;
 }
 
-void matrix()
+void test_matrix(const std::vector<int> & K = {20})
 {
     const auto paths = buildPathImagesAttFaces();
-    const int N = vecvecsize(paths);
-    const std::vector<int> K = {
-        //1, 2, 3, 4, 5, 6, 7, 8, 9, 
-        //10, 15, 20, 25, 
-        //30, 40, 50, 60, 70, 80, 90, 
-        //100, 125, 150, 175, 200, 225, 250, 275, 
-        //300, 330, 360,
-        };
-    std::vector<double> img_errors, vec_errors;
+    int N = vecvecsize(paths);
+
+    vpMatrix matrix(N, N);
+    matrix = 0;
+
     EigenFacesDB egdb;
     egdb.preBuild(paths);
-    egdb.writeMeanImage(std::string("res/mean") + std::string(".png"));
-    egdb.writeEigenFacesImage("res/", 30);
+    vpImage<unsigned char> img(egdb.m_h, egdb.m_w), img2(egdb.m_h, egdb.m_w);
 
+    
     for(int k : K)
     {
-        //std::cout<<"-----------------------"<<std::endl;
-        std::cout<<k<<std::endl;
-        //std::cout<<"-----------------------"<<std::endl;
-        
-        double ev_sum = egdb.buildBDFaces(k);
-
-        double image_space_avg_error=0;
-        double vector_space_avg_error=0;
+        egdb.buildBDFaces(k);
+        vpColVector W(k), W2(k);
+        int i=0;
         for(int face=0; face<paths.size(); ++face)
-            for(int instance = 0; instance < paths[face].size(); ++instance)
         {
-            std::string test_img_path = paths[face][instance];
-            vpImage<unsigned char> test_img;
-            vpImageIo::read(test_img, test_img_path);
-            
-            vpColVector W = egdb.W(test_img);
-            double theta;
-            auto recognized_id = egdb.closestImage(W, &theta, {face, instance});
+            std::cout<<"\rface: "<<face<<std::flush;
+            for(int instance=0; instance<paths[face].size(); ++instance)
+            {
+                vpImageIo::read(img, paths[face][instance]);
+                W = egdb.W(img);
+                int j=0;
+                for(int face2=0; face2 < paths.size(); ++face2)
+                {
+                    for(int instance2=0; instance2<paths[face2].size(); ++instance2)
+                    {
+                        vpImageIo::read(img2, paths[face2][instance2]);
+                        W2 = egdb.W(img2);
 
-            vector_space_avg_error += theta / k;
-
-            vpImage<unsigned char> recognized_img;
-            vpImageIo::read(recognized_img, paths[recognized_id.first][recognized_id.second]);
-            double img_error = error(recognized_img, test_img);
-            image_space_avg_error += img_error;
+                        double dist = (W - W2).sumSquare();
+                        matrix[i][j] = dist;
+                        ++j;
+                    }
+                }
+                ++i;
+            }
         }
-
-        image_space_avg_error /= N;
-        vector_space_avg_error /= N;
-
-        img_errors.push_back(image_space_avg_error);
-        vec_errors.push_back(vector_space_avg_error);
-        
+        std::cout<<std::endl<<"Writing matrix "<<k<<std::endl;
+        std::string file_name = std::string("matrix") + k + std::string(".mat");
+        std::ofstream file(file_name);
+        file << "M = ";
+        matrix.matlabPrint(file);
+        file << ";"<<std::endl;
+        file.close();
     }
-
-    std::cout<<"------------------------------"<<std::endl;
-    std::cout<<"k"<<std::endl;
-    for(int i=0; i<K.size(); ++i)
-    {
-        std::cout<<K[i]<<std::endl;
-    }
-    std::cout<<"------------------------------"<<std::endl;
-
-    std::cout<<"------------------------------"<<std::endl;
-    std::cout<<"image space error"<<std::endl;
-    for(int i=0; i<K.size(); ++i)
-    {
-        std::cout<<img_errors[i]<<std::endl;
-    }
-    std::cout<<"------------------------------"<<std::endl;
-
-    std::cout<<"------------------------------"<<std::endl;
-    std::cout<<"vector space error"<<std::endl;
-    for(int i=0; i<K.size(); ++i)
-    {
-        std::cout<<vec_errors[i]<<std::endl;
-    }
-    std::cout<<"------------------------------"<<std::endl;
-
-    std::cout<<"Done!"<<std::endl;
 }
 
 void computeCenteredImages(int N = 4)
@@ -392,6 +364,24 @@ void savePng(int N = 4)
     }
 }
 
+void evaluate_theta(std::vector<int> const& K)
+{
+    const auto paths = buildPathImagesAttFaces();
+    EigenFacesDB egdb;
+    egdb.preBuild(paths);
+    vpImage<unsigned char> img(egdb.m_h, egdb.m_w), img2(egdb.m_h, egdb.m_w);
+    std::vector<double> theta_same_face, theta_is_face;
+    for(int face=0; face<paths.size(); ++face)
+    {
+        for(int instance=0; instance<paths[face].size(); ++instance)
+        {
+            vpImageIo::read(img, paths[face][instance]);
+
+            
+        }
+    }
+}
+
 
 int main()
 {
@@ -404,7 +394,9 @@ int main()
 
     //stat_recognition();
 
-    computeCenteredImages();
+    test_matrix({1, 10, 20, 50, 100});
+
+    //computeCenteredImages();
 
     //savePng();
 

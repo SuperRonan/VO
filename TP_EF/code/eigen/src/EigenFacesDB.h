@@ -71,7 +71,7 @@ public:
 		m_size = m_h*m_w;
 
 		std::cout << " * Caracteristique de l'images : " << m_h << "x" << m_w << std::endl;
-		std::cout << " * Nombre d'image de la base : " << paths.size()<< std::endl;
+		std::cout << " * Nombre de visages de la base : " << paths.size()<< std::endl;
 		
 
 		// Creation du vpColVector pour le mean face
@@ -106,6 +106,8 @@ public:
 		m_projected_refs = std::vector<vpColVector>(k);
 
 	}
+
+
 
 	// Construire notre base de donnee
 	// returns the sum of the k first eigen values 
@@ -149,6 +151,14 @@ public:
 				double pixel = double(img[i][j]) / 255.0;
 				vec[to1D(i, j)] = pixel - mean;
 			}
+	}
+
+	void printEigenValues()
+	{
+		for(int i=0; i<m_ev.size(); ++i)
+		{
+			std::cout<<m_ev[i]<<std::endl;
+		}
 	}
 
 	// Ecrire des images sur le systeme
