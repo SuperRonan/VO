@@ -324,11 +324,6 @@ void stat_recognition(bool type)
     std::cout<<"Done!"<<std::endl;
 }
 
-inline vpMatrix computeMatrix(EigenFacesDB const& egdb, const std::dvector<vpImage<unsigned char>> & images)
-{
-    //TODO
-}
-
 void test_matrix(const std::vector<int> & K = {20}, bool type=true)
 {
     const auto paths = buildPathImagesAttFaces();
@@ -414,25 +409,68 @@ void savePng(int N = 4)
     }
 }
 
-void evaluate_theta(std::vector<int> const& K = {20})
+void evaluate_theta(std::vector<int> const& K = {20}, bool type=true)
 {
     const auto paths = buildPathImagesAttFaces();
+    const auto images = loadAllImages(paths);
     EigenFacesDB egdb;
     egdb.preBuild(paths);
-    vpImage<unsigned char> img(egdb.m_h, egdb.m_w);
     for(int k : K)
     {
+        egdb.buildBDFaces(k);
+        const auto Ws = projectAll(images, egdb);
         std::vector<double> thetas_same_face, thetas_is_face;
         for(int face=0; face<paths.size(); ++face)
         {
             for(int instance=0; instance<paths[face].size(); ++instance)
             {
-                vpImageIo::read(img, paths[face][instance]);
-
-                double theta_same_face, theta_is_face;
-                
+                const vpColVector & W = Ws[face][instance];
+                //find the best theta for the same face
+                double theta_same_face = std::numeric_limits<double>::max(), theta_is_face=std::numeric_limits<double>::max();
+                for(int f=0; f<paths.size(); ++f)
+                {
+                    for(int i=0; i<paths[f].size(); ++i)
+                    {
+                        const vpColVector & w = Ws[f][i];
+                        if(f == face)
+                        {
+                            //same face
+                            if(i == instance)   continue;
+                            theta_same_face = std::min(theta_same_face, (W - w).sumSquare());
+                        }
+                        else
+                        {
+                            theta_is_face = std::min(theta_is_face, (W - w).sumSquare());
+                        }
+                    }
+                }
+                thetas_same_face.push_back(theta_same_face);
+                thetas_is_face.push_back(theta_is_face);
             }
         }
+
+        if(false)
+        {
+            std::cout<<"k: "<<k<<std::endl;
+
+            std::cout<<"theta is face: "<<std::endl;
+            printVector(thetas_is_face, std::cout, type)<<std::endl;
+
+            std::cout<<"theta same face: "<<std::endl;
+            printVector(thetas_same_face, std::cout, type)<<std::endl;
+        }
+        else
+        {
+            std::ofstream file(std::string("theta_") + k + std::string(".mat"));
+            file << "TIF = ";
+            printVector(thetas_is_face, file, type)<<std::endl<<std::endl;
+
+            file<<"TSF = ";
+            printVector(thetas_same_face, file, type)<<std::endl;
+            file.close();
+        }
+        
+        
     }
 }
 
@@ -450,7 +488,9 @@ int main()
 
     //stat_recognition(type);
 
-    test_matrix({1, 10, 20, 50, 100, 400}, type);
+    //test_matrix({1, 10, 20, 50, 100, 400}, type);
+
+    evaluate_theta({1, 10, 20, 50, 100}, type);
 
     //computeCenteredImages();
 
