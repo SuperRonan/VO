@@ -16,6 +16,7 @@
 #include <omp.h>
 #include <limits>
 #include <visp3/core/vpImageConvert.h>
+#include <algorithm>
 
 #define OMP_PARALLEL_FOR _Pragma("omp parallel for")
 //#define OMP_PARALLEL_FOR
@@ -153,12 +154,11 @@ public:
 			}
 	}
 
-	void printEigenValues()
+	std::vector<double> getEigenValuesVector()const
 	{
-		for(int i=0; i<m_ev.size(); ++i)
-		{
-			std::cout<<m_ev[i]<<std::endl;
-		}
+		std::vector<double> res(m_ev.size());
+		std::copy(m_ev.data, m_ev.data + m_ev.size(), res.begin());
+		return res;
 	}
 
 	// Ecrire des images sur le systeme

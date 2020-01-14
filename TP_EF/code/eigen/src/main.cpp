@@ -78,7 +78,39 @@ size_t vecvecsize(std::vector<std::vector<T>> const& vec)
 }
 
 
-void test_k_error_sum()
+
+template <class Stream, class T>
+Stream& matlabPrint(std::vector<T> const& vec, Stream & stream, bool semicolon=true)
+{
+    stream << "[";
+    for(T const& elem : vec)
+    {
+        stream << elem << ", ";
+    }
+    stream << "]";
+    return stream;
+}
+
+template <class Stream, class T>
+Stream& exelPrint(std::vector<T> const& vec, Stream & stream)
+{
+    for(T const& elem : vec)
+    {
+        stream << elem << std::endl;
+    }
+    return stream;
+}
+
+template <class Stream, class T>
+Stream& printVector(std::vector<T> const& vec, Stream & stream, bool type)
+{
+    if(type)
+        return matlabPrint(vec, stream);
+    else
+        return exelPrint(vec, stream);
+}
+
+void test_k_error_sum(bool type=true)
 {
     const auto paths = buildPathImagesAttFaces();
     const int N = vecvecsize(paths);
@@ -95,14 +127,14 @@ void test_k_error_sum()
     EigenFacesDB egdb;
     egdb.preBuild(paths);
     std::cout<<"Eigen Values: "<<std::endl;
-    egdb.printEigenValues();
+    printVector(egdb.getEigenValuesVector(), std::cout, type);
     egdb.writeMeanImage(std::string("res/mean") + std::string(".png"));
     egdb.writeEigenFacesImage("res/", 30);
 
     for(int k : K)
     {
         //std::cout<<"-----------------------"<<std::endl;
-        std::cout<<"k: "<<k<<std::endl;
+        std::cout<<"\rk: "<<k<<std::flush;
         //std::cout<<"-----------------------"<<std::endl;
         
         double ev_sum = egdb.buildBDFaces(k);
@@ -130,39 +162,23 @@ void test_k_error_sum()
 
         avg_error /= N;
         errors.push_back(avg_error);
-        
+        std::cout<<"    ";
     }
-
-    std::cout<<"------------------------------"<<std::endl;
-    std::cout<<"k\te\t\tevs"<<std::endl;
-    for(int i=0; i<K.size(); ++i)
-    {
-        std::cout<<K[i]<<"\t"<<errors[i]<<"\t"<<ev_sums[i]<<std::endl;
-    }
-    std::cout<<"------------------------------"<<std::endl;
+    std::cout<<std::endl;
 
     std::cout<<"------------------------------"<<std::endl;
     std::cout<<"k"<<std::endl;
-    for(int i=0; i<K.size(); ++i)
-    {
-        std::cout<<K[i]<<std::endl;
-    }
+    printVector(K, std::cout, type);
     std::cout<<"------------------------------"<<std::endl;
 
     std::cout<<"------------------------------"<<std::endl;
-    std::cout<<"e"<<std::endl;
-    for(int i=0; i<K.size(); ++i)
-    {
-        std::cout<<errors[i]<<std::endl;
-    }
+    std::cout<<"error"<<std::endl;
+    printVector(errors, std::cout, type);
     std::cout<<"------------------------------"<<std::endl;
 
     std::cout<<"------------------------------"<<std::endl;
     std::cout<<"evs"<<std::endl;
-    for(int i=0; i<K.size(); ++i)
-    {
-        std::cout<<ev_sums[i]<<std::endl;
-    }
+    printVector(ev_sums, std::cout, type);
     std::cout<<"------------------------------"<<std::endl;
 
     std::cout<<"Done!"<<std::endl;
@@ -326,7 +342,7 @@ void test_matrix(const std::vector<int> & K = {20})
         std::cout<<std::endl<<"Writing matrix "<<k<<std::endl;
         std::string file_name = std::string("matrix") + k + std::string(".mat");
         std::ofstream file(file_name);
-        file << "M = ";
+        file << "M"<<k<<" = ";
         matrix.matlabPrint(file);
         file << ";"<<std::endl;
         file.close();
@@ -370,14 +386,18 @@ void evaluate_theta(std::vector<int> const& K)
     EigenFacesDB egdb;
     egdb.preBuild(paths);
     vpImage<unsigned char> img(egdb.m_h, egdb.m_w), img2(egdb.m_h, egdb.m_w);
-    std::vector<double> theta_same_face, theta_is_face;
-    for(int face=0; face<paths.size(); ++face)
+    for(int k : K)
     {
-        for(int instance=0; instance<paths[face].size(); ++instance)
+        std::vector<double> thetas_same_face, thetas_is_face;
+        for(int face=0; face<paths.size(); ++face)
         {
-            vpImageIo::read(img, paths[face][instance]);
+            for(int instance=0; instance<paths[face].size(); ++instance)
+            {
+                vpImageIo::read(img, paths[face][instance]);
 
-            
+                double theta_same_face, theta_is_face;
+                
+            }
         }
     }
 }
