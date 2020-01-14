@@ -102,7 +102,7 @@ Stream& exelPrint(std::vector<T> const& vec, Stream & stream)
 }
 
 template <class Stream, class T>
-Stream& printVector(std::vector<T> const& vec, Stream & stream, bool type)
+Stream& printVector(std::vector<T> const& vec, Stream & stream, bool type=true)
 {
     if(type)
         return matlabPrint(vec, stream);
@@ -112,6 +112,7 @@ Stream& printVector(std::vector<T> const& vec, Stream & stream, bool type)
 
 void test_k_error_sum(bool type=true)
 {
+    std::cout<<"hi"<<std::endl;
     const auto paths = buildPathImagesAttFaces();
     const int N = vecvecsize(paths);
     const std::vector<int> K = {
@@ -127,7 +128,7 @@ void test_k_error_sum(bool type=true)
     EigenFacesDB egdb;
     egdb.preBuild(paths);
     std::cout<<"Eigen Values: "<<std::endl;
-    printVector(egdb.getEigenValuesVector(), std::cout, type);
+    printVector(egdb.getEigenValuesVector(), std::cout, type)<<std::endl;
     egdb.writeMeanImage(std::string("res/mean") + std::string(".png"));
     egdb.writeEigenFacesImage("res/", 30);
 
@@ -166,27 +167,21 @@ void test_k_error_sum(bool type=true)
     }
     std::cout<<std::endl;
 
-    std::cout<<"------------------------------"<<std::endl;
     std::cout<<"k"<<std::endl;
-    printVector(K, std::cout, type);
-    std::cout<<"------------------------------"<<std::endl;
+    printVector(K, std::cout, type) << std::endl;
 
-    std::cout<<"------------------------------"<<std::endl;
     std::cout<<"error"<<std::endl;
-    printVector(errors, std::cout, type);
-    std::cout<<"------------------------------"<<std::endl;
+    printVector(errors, std::cout, type)<<std::endl;
 
-    std::cout<<"------------------------------"<<std::endl;
     std::cout<<"evs"<<std::endl;
-    printVector(ev_sums, std::cout, type);
-    std::cout<<"------------------------------"<<std::endl;
+    printVector(ev_sums, std::cout, type)<<std::endl;
 
     std::cout<<"Done!"<<std::endl;
 }
 
 #define PRINT(var) std::cout << #var << ": " << var << std::endl;
 
-void test_recognition(int iter=20, int k = 20)
+void test_recognition(int iter=20, int k = 20, bool type=true)
 {
     const auto cpaths = buildPathImagesAttFaces();
     double mean=0, max = 0, min = 1e20;
@@ -213,7 +208,7 @@ void test_recognition(int iter=20, int k = 20)
     PRINT(min);
 }
 
-void stat_recognition()
+void stat_recognition(bool type)
 {
     const auto paths = buildPathImagesAttFaces();
     const int N = vecvecsize(paths);
@@ -230,12 +225,12 @@ void stat_recognition()
     egdb.preBuild(paths);
 
     egdb.writeMeanImage(std::string("res/mean") + std::string(".png"));
-    egdb.writeEigenFacesImage("res/", 30);
+    egdb.writeEigenFacesImage("res/", N);
 
     for(int k : K)
     {
         //std::cout<<"-----------------------"<<std::endl;
-        std::cout<<"k: "<<k<<std::endl;
+        std::cout<<"\rk: "<<k<<std::flush;
         //std::cout<<"-----------------------"<<std::endl;
         
         double ev_sum = egdb.buildBDFaces(k);
@@ -268,37 +263,29 @@ void stat_recognition()
 
         img_errors.push_back(image_space_avg_error);
         vec_errors.push_back(vector_space_avg_error);
-        
+        std::cout<<"        ";
     }
+    std::cout<<std::endl;
 
     std::cout<<"------------------------------"<<std::endl;
     std::cout<<"k"<<std::endl;
-    for(int i=0; i<K.size(); ++i)
-    {
-        std::cout<<K[i]<<std::endl;
-    }
+    printVector(K, std::cout, type);
     std::cout<<"------------------------------"<<std::endl;
 
     std::cout<<"------------------------------"<<std::endl;
     std::cout<<"image space error"<<std::endl;
-    for(int i=0; i<K.size(); ++i)
-    {
-        std::cout<<img_errors[i]<<std::endl;
-    }
+    printVector(img_errors, std::cout, type);
     std::cout<<"------------------------------"<<std::endl;
 
     std::cout<<"------------------------------"<<std::endl;
     std::cout<<"vector space error"<<std::endl;
-    for(int i=0; i<K.size(); ++i)
-    {
-        std::cout<<vec_errors[i]<<std::endl;
-    }
+    printVector(vec_errors, std::cout, type);
     std::cout<<"------------------------------"<<std::endl;
 
     std::cout<<"Done!"<<std::endl;
 }
 
-void test_matrix(const std::vector<int> & K = {20})
+void test_matrix(const std::vector<int> & K = {20}, bool type=true)
 {
     const auto paths = buildPathImagesAttFaces();
     int N = vecvecsize(paths);
@@ -408,17 +395,21 @@ int main()
     srand(time(NULL));
     omp_set_num_threads(16);
 
-    //test_k_error_sum();
+    bool type = 1; //matlab
 
-    //test_recognition(100, 50);
+    test_k_error_sum(type);
 
-    //stat_recognition();
+    //test_recognition(100, 50, type);
 
-    test_matrix({1, 10, 20, 50, 100});
+    //stat_recognition(type);
+
+    //test_matrix({1, 10, 20, 50, 100}, type);
 
     //computeCenteredImages();
 
     //savePng();
+
+    std::cout<<"Done!"<<std::endl;
 
 	return 0;
 }

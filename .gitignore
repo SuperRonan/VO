@@ -1,3 +1,8 @@
 ./tp-av/tp-code/.vscode/
 ./tp-av/tp-code/build/
-./TP_EF/code/eigen/build/
+./TP_EF/code/eigen/build/.vscode/
+./TP_EF/code/eigen/build/CMakeFiles/
+./TP_EF/code/eigen/build/cmake_install.cmake
+./TP_EF/code/eigen/build/CMakeCache.txt
+./TP_EF/code/eigen/build/main
+./TP_EF/code/eigen/build/Makefile
