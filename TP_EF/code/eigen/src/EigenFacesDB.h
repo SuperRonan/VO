@@ -184,7 +184,7 @@ public:
 		return res;
 	}
 	
-	vpColVector W(vpImage<unsigned char> const& img)const
+	inline vpColVector W(vpImage<unsigned char> const& img)const
 	{
 		vpColVector vec_img(img.getSize());
 		fillCenteredImage(img, vec_img.data);
@@ -193,7 +193,7 @@ public:
 		return res;	
 	}
 	
-	vpImage<unsigned char> Jp(vpColVector const& w)const
+	inline vpImage<unsigned char> Jp(vpColVector const& w)const
 	{
 		vpImage<unsigned char> res(m_h, m_w);
 		vpColVector col = m_U * w;

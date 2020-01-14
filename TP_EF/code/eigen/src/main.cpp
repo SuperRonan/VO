@@ -22,9 +22,15 @@ void  writeEigenFaceInImage(int m_w, int m_h, const std::string& path, vpColVect
     vpImageIo::write(I, path);
 }
 
-std::vector<std::vector<std::string>> buildPathImagesAttFaces(int except=0)
+namespace std
 {
-	std::vector<std::vector<std::string>> v;
+    template <class T>
+    using dvector = std::vector<std::vector<T>>;
+}
+
+inline std::dvector<std::string> buildPathImagesAttFaces(int except=0)
+{
+	std::dvector<std::string> v;
 	for(int nbDir=1; nbDir<=40; nbDir++)
     {
         std::vector<std::string> face_vec;
@@ -38,6 +44,38 @@ std::vector<std::vector<std::string>> buildPathImagesAttFaces(int except=0)
     }
 	return v;
 }
+
+inline std::dvector<vpImage<unsigned char>> loadAllImages(std::dvector<std::string> const& paths)
+{
+    std::dvector<vpImage<unsigned char>> res(paths.size());
+    OMP_PARALLEL_FOR
+    for(int face=0; face < paths.size(); ++face)
+    {
+        res[face] = std::vector<vpImage<unsigned char>>(paths[face].size());
+        for(int instance=0; instance<paths[face].size(); ++instance)
+        {   
+            vpImageIo::read(res[face][instance], paths[face][instance]);
+        }
+    }
+    return res;
+}
+
+
+inline std::dvector<vpColVector> projectAll(std::dvector<vpImage<unsigned char>> const& imgs, EigenFacesDB const& egdb)
+{
+    std::dvector<vpColVector> res(imgs.size());
+    for(int face=0; face<imgs.size(); ++face)
+    {
+        res[face] = std::vector<vpColVector>(imgs[face].size());
+        for(int instance=0; instance<imgs[face].size(); ++instance)
+        {
+            res[face][instance] = egdb.W(imgs[face][instance]);
+        }
+    }
+    return res;
+}
+
+
 
 template <class T>
 double error(vpImage<T> const& I, vpImage<T> const& J)
@@ -131,7 +169,8 @@ void test_k_error_sum(bool type=true)
     printVector(egdb.getEigenValuesVector(), std::cout, type)<<std::endl;
     egdb.writeMeanImage(std::string("res/mean") + std::string(".png"));
     egdb.writeEigenFacesImage("res/", 30);
-
+    vpImage<unsigned char> test_img, reconstructed_img;
+    vpColVector W;
     for(int k : K)
     {
         //std::cout<<"-----------------------"<<std::endl;
@@ -146,12 +185,12 @@ void test_k_error_sum(bool type=true)
         {
             for(int instance = 0; instance<paths[face].size(); ++instance)
             {
-                std::string test_img_path = paths[face][instance];
-                vpImage<unsigned char> test_img;
+                std::string const& test_img_path = paths[face][instance];
+                
                 vpImageIo::read(test_img, test_img_path);
                 
-                vpColVector W = egdb.W(test_img);
-                vpImage<unsigned char> reconstructed_img = egdb.Jp(W);
+                W = egdb.W(test_img);
+                reconstructed_img = egdb.Jp(W);
                 
                 double img_error = error(reconstructed_img, test_img);
                 
@@ -285,9 +324,15 @@ void stat_recognition(bool type)
     std::cout<<"Done!"<<std::endl;
 }
 
+inline vpMatrix computeMatrix(EigenFacesDB const& egdb, const std::dvector<vpImage<unsigned char>> & images)
+{
+    //TODO
+}
+
 void test_matrix(const std::vector<int> & K = {20}, bool type=true)
 {
     const auto paths = buildPathImagesAttFaces();
+    const auto images = loadAllImages(paths);
     int N = vecvecsize(paths);
 
     vpMatrix matrix(N, N);
@@ -300,25 +345,27 @@ void test_matrix(const std::vector<int> & K = {20}, bool type=true)
     
     for(int k : K)
     {
+        std::cout<<"k: "<<k<<std::endl;
         egdb.buildBDFaces(k);
-        vpColVector W(k), W2(k);
+        //vpColVector W(k), W2(k);
+        const auto Ws = projectAll(images, egdb);
         int i=0;
         for(int face=0; face<paths.size(); ++face)
         {
             std::cout<<"\rface: "<<face<<std::flush;
             for(int instance=0; instance<paths[face].size(); ++instance)
             {
-                vpImageIo::read(img, paths[face][instance]);
-                W = egdb.W(img);
+                //vpImageIo::read(img, paths[face][instance]);
+                //W = egdb.W(images[face][instance]);
                 int j=0;
                 for(int face2=0; face2 < paths.size(); ++face2)
                 {
                     for(int instance2=0; instance2<paths[face2].size(); ++instance2)
                     {
-                        vpImageIo::read(img2, paths[face2][instance2]);
-                        W2 = egdb.W(img2);
+                        //vpImageIo::read(img2, paths[face2][instance2]);
+                        //W2 = egdb.W(images[face][instance]);
 
-                        double dist = (W - W2).sumSquare();
+                        double dist = (Ws[face][instance] - Ws[face2][instance2]).sumSquare();
                         matrix[i][j] = dist;
                         ++j;
                     }
@@ -367,12 +414,12 @@ void savePng(int N = 4)
     }
 }
 
-void evaluate_theta(std::vector<int> const& K)
+void evaluate_theta(std::vector<int> const& K = {20})
 {
     const auto paths = buildPathImagesAttFaces();
     EigenFacesDB egdb;
     egdb.preBuild(paths);
-    vpImage<unsigned char> img(egdb.m_h, egdb.m_w), img2(egdb.m_h, egdb.m_w);
+    vpImage<unsigned char> img(egdb.m_h, egdb.m_w);
     for(int k : K)
     {
         std::vector<double> thetas_same_face, thetas_is_face;
@@ -397,13 +444,13 @@ int main()
 
     bool type = 1; //matlab
 
-    test_k_error_sum(type);
+    //test_k_error_sum(type);
 
     //test_recognition(100, 50, type);
 
     //stat_recognition(type);
 
-    //test_matrix({1, 10, 20, 50, 100}, type);
+    test_matrix({1, 10, 20, 50, 100, 400}, type);
 
     //computeCenteredImages();
 
