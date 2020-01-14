@@ -1,3 +1,0 @@
-/mnt/i/E3/VO/TP/TP_EF/code/eigen/build/CMakeFiles/rebuild_cache.dir
-/mnt/i/E3/VO/TP/TP_EF/code/eigen/build/CMakeFiles/main.dir
-/mnt/i/E3/VO/TP/TP_EF/code/eigen/build/CMakeFiles/edit_cache.dir
