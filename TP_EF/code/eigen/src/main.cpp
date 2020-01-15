@@ -126,6 +126,8 @@ Stream& matlabPrint(std::vector<T> const& vec, Stream & stream, bool semicolon=t
         stream << elem << ", ";
     }
     stream << "]";
+    if(semicolon)
+        stream << ";";
     return stream;
 }
 
@@ -409,6 +411,18 @@ void savePng(int N = 4)
     }
 }
 
+template <class numeric>
+numeric evaluate_threshold(std::vector<numeric> & X)
+{
+    std::sort(X.begin(), X.end());
+    numeric min = X.front(), max = X.back();
+    numeric mean = std::accumulate(X.cbegin(), X.cend(), 0) / X.size();
+    numeric var = std::accumulate(X.cbegin(), X.cend(), 0, [mean](numeric sum, numeric next){numeric dif = mean - next; return dif * dif;}) / X.size();
+    numeric sigma = std::sqrt(var);
+
+    return mean;
+}
+
 void evaluate_theta(std::vector<int> const& K = {20}, bool type=true)
 {
     const auto paths = buildPathImagesAttFaces();
@@ -417,6 +431,7 @@ void evaluate_theta(std::vector<int> const& K = {20}, bool type=true)
     egdb.preBuild(paths);
     for(int k : K)
     {
+        std::cout<<"k: "<<k<<std::endl;
         egdb.buildBDFaces(k);
         const auto Ws = projectAll(images, egdb);
         std::vector<double> thetas_same_face, thetas_is_face;
@@ -451,8 +466,6 @@ void evaluate_theta(std::vector<int> const& K = {20}, bool type=true)
 
         if(false)
         {
-            std::cout<<"k: "<<k<<std::endl;
-
             std::cout<<"theta is face: "<<std::endl;
             printVector(thetas_is_face, std::cout, type)<<std::endl;
 
@@ -469,6 +482,13 @@ void evaluate_theta(std::vector<int> const& K = {20}, bool type=true)
             printVector(thetas_same_face, file, type)<<std::endl;
             file.close();
         }
+
+        double theta_is_face = evaluate_threshold(thetas_is_face);
+
+        double theta_same_face = evaluate_threshold(thetas_same_face);
+
+        PRINT(theta_is_face);
+        PRINT(theta_same_face);
         
         
     }
