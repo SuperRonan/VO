@@ -464,6 +464,9 @@ void evaluate_theta(std::vector<int> const& K = {20}, bool type=true)
             }
         }
 
+        std::sort(thetas_same_face.begin(), thetas_same_face.end());
+        std::sort(thetas_is_face.begin(), thetas_is_face.end());
+
         if(false)
         {
             std::cout<<"theta is face: "<<std::endl;
@@ -475,6 +478,70 @@ void evaluate_theta(std::vector<int> const& K = {20}, bool type=true)
         else
         {
             std::ofstream file(std::string("theta_") + k + std::string(".mat"));
+            file << "TIF = ";
+            printVector(thetas_is_face, file, type)<<std::endl<<std::endl;
+
+            file<<"TSF = ";
+            printVector(thetas_same_face, file, type)<<std::endl;
+            file.close();
+        }
+
+        double theta_is_face = evaluate_threshold(thetas_is_face);
+
+        double theta_same_face = evaluate_threshold(thetas_same_face);
+
+        PRINT(theta_is_face);
+        PRINT(theta_same_face);
+        
+        
+    }
+}
+
+void evaluate_theta_alternative(std::vector<int> const& K = {20}, bool type=true)
+{
+    const auto paths = buildPathImagesAttFaces();
+    const auto images = loadAllImages(paths);
+    EigenFacesDB egdb;
+    egdb.preBuild(paths);
+    for(int k : K)
+    {
+        std::cout<<"k: "<<k<<std::endl;
+        egdb.buildBDFaces(k);
+        const auto Ws = projectAll(images, egdb);
+        std::vector<double> thetas_same_face, thetas_is_face;
+        for(int face=0; face<paths.size(); ++face)
+        {
+            for(int instance=0; instance<paths[face].size(); ++instance)
+            {
+                const vpColVector & W = Ws[face][instance];
+                //find the best theta for the same face
+                double theta_same_face = std::numeric_limits<double>::max(), theta_is_face=std::numeric_limits<double>::max();
+
+                auto id = egdb.closestImage(W, &theta_same_face, {face, instance});
+                if(id.first == face)//correct
+                {
+                    thetas_same_face.push_back(theta_same_face);
+                }
+                
+                id = egdb.closestImage(W, &theta_is_face, {face, -1});
+                thetas_is_face.push_back(theta_is_face);
+            }
+        }
+
+        std::sort(thetas_same_face.begin(), thetas_same_face.end());
+        std::sort(thetas_is_face.begin(), thetas_is_face.end());
+
+        if(false)
+        {
+            std::cout<<"theta is face: "<<std::endl;
+            printVector(thetas_is_face, std::cout, type)<<std::endl;
+
+            std::cout<<"theta same face: "<<std::endl;
+            printVector(thetas_same_face, std::cout, type)<<std::endl;
+        }
+        else
+        {
+            std::ofstream file(std::string("theta_alter_") + k + std::string(".mat"));
             file << "TIF = ";
             printVector(thetas_is_face, file, type)<<std::endl<<std::endl;
 
@@ -511,6 +578,8 @@ int main()
     //test_matrix({1, 10, 20, 50, 100, 400}, type);
 
     evaluate_theta({1, 10, 20, 50, 100}, type);
+
+    evaluate_theta_alternative({1, 10, 20, 50, 100}, type);
 
     //computeCenteredImages();
 
