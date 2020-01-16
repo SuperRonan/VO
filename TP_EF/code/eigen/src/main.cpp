@@ -420,7 +420,17 @@ numeric evaluate_threshold(std::vector<numeric> & X)
     numeric var = std::accumulate(X.cbegin(), X.cend(), 0, [mean](numeric sum, numeric next){numeric dif = mean - next; return dif * dif;}) / X.size();
     numeric sigma = std::sqrt(var);
 
-    return mean;
+    
+    // Normal fit
+    numeric x;
+    //confidence = 90%
+    //x = 1.29;
+
+    //confidence = 95%
+    x = 1.65;
+    
+
+    return x * sigma + mean;
 }
 
 void evaluate_theta(std::vector<int> const& K = {20}, bool type=true)
@@ -467,6 +477,10 @@ void evaluate_theta(std::vector<int> const& K = {20}, bool type=true)
         std::sort(thetas_same_face.begin(), thetas_same_face.end());
         std::sort(thetas_is_face.begin(), thetas_is_face.end());
 
+        double theta_is_face = evaluate_threshold(thetas_is_face);
+
+        double theta_same_face = evaluate_threshold(thetas_same_face);
+
         if(false)
         {
             std::cout<<"theta is face: "<<std::endl;
@@ -479,16 +493,15 @@ void evaluate_theta(std::vector<int> const& K = {20}, bool type=true)
         {
             std::ofstream file(std::string("theta_") + k + std::string(".mat"));
             file << "TIF = ";
-            printVector(thetas_is_face, file, type)<<std::endl<<std::endl;
+            printVector(thetas_is_face, file, type)<<std::endl<<"tif = "<<theta_is_face<<";"<<std::endl;
+
 
             file<<"TSF = ";
-            printVector(thetas_same_face, file, type)<<std::endl;
+            printVector(thetas_same_face, file, type)<<std::endl<<"tsf = "<<theta_same_face<<";"<<std::endl;;
             file.close();
         }
 
-        double theta_is_face = evaluate_threshold(thetas_is_face);
-
-        double theta_same_face = evaluate_threshold(thetas_same_face);
+        
 
         PRINT(theta_is_face);
         PRINT(theta_same_face);
@@ -497,6 +510,7 @@ void evaluate_theta(std::vector<int> const& K = {20}, bool type=true)
     }
 }
 
+// Not very good 
 void evaluate_theta_alternative(std::vector<int> const& K = {20}, bool type=true)
 {
     const auto paths = buildPathImagesAttFaces();
@@ -579,7 +593,7 @@ int main()
 
     evaluate_theta({1, 10, 20, 50, 100}, type);
 
-    evaluate_theta_alternative({1, 10, 20, 50, 100}, type);
+    //evaluate_theta_alternative({1, 10, 20, 50, 100}, type);
 
     //computeCenteredImages();
 
