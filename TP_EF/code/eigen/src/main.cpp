@@ -170,7 +170,7 @@ void test_k_error_sum(bool type=true)
     std::cout<<"Eigen Values: "<<std::endl;
     printVector(egdb.getEigenValuesVector(), std::cout, type)<<std::endl;
     egdb.writeMeanImage(std::string("res/mean") + std::string(".png"));
-    egdb.writeEigenFacesImage("res/", 30);
+    egdb.writeEigenFacesImage("res/", 400);
     vpImage<unsigned char> test_img, reconstructed_img;
     vpColVector W;
     for(int k : K)
@@ -222,31 +222,50 @@ void test_k_error_sum(bool type=true)
 
 #define PRINT(var) std::cout << #var << ": " << var << std::endl;
 
-void test_recognition(int iter=20, int k = 20, bool type=true)
+void test_recognition(bool naive, int k = 20, bool type=true)
 {
+    int correct_face=0, correct=0;
     const auto cpaths = buildPathImagesAttFaces();
-    double mean=0, max = 0, min = 1e20;
-    for(int i=0; i<iter; ++i)
+    EigenFacesDB egdb;
+    egdb.preBuild(cpaths);
+    egdb.buildBDFaces(k);
+    egdb.theta1 = 50;
+    egdb.theta2 = 125;
+    vpImage<unsigned char> img;
+    vpColVector W;
+    int total = vecvecsize(cpaths);
+    for(int face=0; face<cpaths.size(); ++face)
     {
-        auto paths = cpaths;
-        auto face = pickOne(paths);
-        auto test_img_path = pickOne(face);
-        EigenFacesDB egdb;
-        egdb.preBuild(paths);
-        egdb.buildBDFaces(k);
-        vpImage<unsigned char> img;
-        vpImageIo::read(img, test_img_path);
-        double theta;
-        egdb.closestImage(img, &theta);
-        mean += theta;
-        max = std::max(max, theta);
-        min = std::min(min, theta);
-        //PRINT(theta);
+        for(int instance = 0; instance < cpaths[face].size(); ++instance)
+        {
+            //int instance = rand() % cpaths[face].size();
+            vpImageIo::read(img, cpaths[face][instance]);
+            W = egdb.W(img);
+            int res;
+            if(naive)
+                res = egdb.recognize_face_naive(W, instance);
+            else
+                res = egdb.recognize_face(W, instance);
+            
+            if(res == face)
+            {
+                ++correct;
+                ++correct_face;
+            }
+            else if(res == -1)
+            {
+                ++correct;
+            }
+            else if(res >= 0)
+            {
+                ++correct;
+            }
+        }
     }
-    mean = mean / iter;
-    PRINT(mean);
-    PRINT(max);
-    PRINT(min);
+
+    PRINT(correct_face);
+    PRINT(correct);
+    PRINT(total);
 }
 
 void stat_recognition(bool type)
@@ -583,15 +602,18 @@ int main()
 
     bool type = 1; //matlab
 
-    //test_k_error_sum(type);
-
-    //test_recognition(100, 50, type);
+    test_k_error_sum(type);
+    
+    //std::cout<<"naive"<<std::endl;
+    //test_recognition(true, 50, type);
+    //std::cout<<"not naive"<<std::endl;
+    //test_recognition(false, 50, type);
 
     //stat_recognition(type);
 
     //test_matrix({1, 10, 20, 50, 100, 400}, type);
 
-    evaluate_theta({1, 10, 20, 50, 100}, type);
+    //evaluate_theta({1, 10, 20, 50, 100}, type);
 
     //evaluate_theta_alternative({1, 10, 20, 50, 100}, type);
 

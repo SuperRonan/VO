@@ -54,6 +54,9 @@ public:
 
 public:
 	std::vector<vpColVector> m_projected_refs;
+
+	double theta1, theta2;
+
 	/**
 	 *  Constructeurs et destructeurs
 	 */
@@ -250,7 +253,7 @@ public:
 		//vpColVector eigenFace;
 		vpImage<double> ef_img(m_h, m_w);
 		vpImage<unsigned char> uc_img(m_h, m_w);
-		max = std::min((int)m_paths.size(), max);
+		max = std::min(400, max);
 		for(int i=0; i<max; ++i)
 		{
 			//eigenFace = full_U.getCol(i);
@@ -270,19 +273,97 @@ public:
 		for(int i=0; i<tmp.getSize(); ++i)	tmp.bitmap[i] = vec[i];
 		vpImageConvert::convert(tmp, img);
 	}
-	// * l'image synthetisee
-	vpColVector computeSynthesisImage(const std::string& image, int nbDim);
-	void writeSynthesisImage(const std::string& image, const std::string& out, int nbDim);
-	void writeSynthesisError(const std::string& image, const std::string& path);
-	double computeSynthesisError(const std::string& image, int K);
-	// Calculer le vecteur pour identifier une image
-	vpColVector computeIdVector(const std::string& image, int nbDim);
-	// Pour ecrire les valeurs propres
-	void writeValeursPropres(const std::string& path);
-	// Matrice de distance
-	double computeDistanceImage(const std::string& i1, const std::string& i2);
-	double distanceIdVectors(vpColVector& id1, vpColVector& id2);
-	void writeMatriceDistance(std::vector<std::string> paths, const std::string& out, int nbDim);
+
+	int recognize_face(vpImage<unsigned char> const& img, int except=-1)const
+	{
+		vpColVector w = W(img);
+		return recognize_face(w, except);
+	}
+	// returns -2 if w is not a face image
+	// returns -1 if w is a face, but not in the database
+	int recognize_face(vpColVector const& w, int except=1)const
+	{
+		int naive_res = recognize_face_naive(w, except);
+		if(naive_res < 0)
+		    return naive_res;
+		double alpha=0.9, beta=0.5, gamma=0.1;
+		const auto score = [alpha, beta, gamma](std::vector<double> const& thetas, double sum, double min)
+		{
+			double mean = sum / thetas.size();
+			double var = std::accumulate(thetas.cbegin(), thetas.cend(), 0, [mean](double x, double y){double dif=y - mean; return x + dif * dif;}) / thetas.size();
+			return alpha * min + beta * mean + gamma * std::sqrt(var);
+		};
+		int face_id = -1;
+		double best_score = std::numeric_limits<double>::max();
+		int i=0; 
+		for(int face=0; face<m_paths.size(); ++face)
+		{
+			std::vector<double> thetas;
+			double sum = 0;	
+			double min = std::numeric_limits<double>::max();
+			for(int instance=0; instance<m_paths[face].size(); ++instance)
+			{
+				if(instance == except)	{++i; continue;}
+				double error = (m_projected_refs[i] - w).sumSquare();
+				min = std::min(min, error);
+				sum += error;
+				thetas.push_back(error);
+				++i;
+			}
+			if(min < theta2)
+			{
+				double face_score = score(thetas, sum, min);
+				if(face_score < best_score)
+				{
+					face_id = face;
+					best_score = face_score;
+				}
+			}
+		}
+		
+
+		return face_id;
+	}
+
+	int recognize_face_naive(vpImage<unsigned char> const& img, int except=-1)const
+	{
+		vpColVector w = W(img);
+		return recognize_face_naive(w, except);
+	}
+
+	// returns -2 if w is not a face image
+	// returns -1 if w is a face, but not in the database
+	int recognize_face_naive(vpColVector const& w, int except=1)const
+	{
+		bool w_is_face = false;
+		int face_id = -1;
+		double best_score = std::numeric_limits<double>::max();
+		int i=0; 
+		for(int face=0; face<m_paths.size(); ++face)
+		{
+			for(int instance=0; instance<m_paths[face].size(); ++instance)
+			{
+				if(instance == except)	{++i; continue;}
+				double error = (m_projected_refs[i] - w).sumSquare();
+				w_is_face = w_is_face || error < theta2;
+				
+				if(error < best_score)
+				{
+					face_id = face;
+					best_score = error;
+				}
+
+				++i;
+			}
+		}
+		if(best_score < theta1)
+			return face_id;
+		else if(w_is_face)
+			return -1;
+		else
+			return -2;
+	}
+
 	
 private:
 	void buildMeanImage(const std::vector<std::vector<std::string>>& paths)

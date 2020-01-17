@@ -1,2 +1,2 @@
-make -j
+make
 ./main
